@@ -1,0 +1,53 @@
+version: '3.3'
+services:
+    db:
+        restart: always
+        image: mysql/mysql-server:5.7.28
+        container_name: mlflow_db
+        networks:
+            - mydefault
+        expose:
+            - ${DB_PORT}
+        ports:
+            - "${DB_PORT}:${DB_PORT}"
+        environment:
+            - MYSQL_DATABASE=${DB_NAME}
+            - MYSQL_USER=${DB_USER}
+            - MYSQL_PASSWORD=${DB_PW}
+            - MYSQL_ROOT_PASSWORD=${DB_ROOTPW}
+        volumes:
+            - ./db_datams:/var/lib/mysql
+
+    app:
+        restart: always
+        build: ./mlflow
+        image: mlflow_server
+        container_name: mlflow_server
+        networks:
+            - mydefault
+        expose:
+            - ${MLFLOW_PORT}
+        ports:
+            - "${MLFLOW_PORT}:${MLFLOW_PORT}"
+        environment:
+            - BACKEND=mysql+pymysql://${DB_USER}:${DB_PW}@db:${DB_PORT}/${DB_NAME}
+            - ARTIFACTS=/mlruns
+        volumes:
+            - mlrun_data:/mlruns
+        command: 
+            - sh    # (sh allows for var substitution of BACKEND and ARTIFACTS)
+            - -c
+            - mlflow server 
+                --port ${MLFLOW_PORT} 
+                --host 0.0.0.0 
+                --backend-store-uri $${BACKEND} 
+                --default-artifact-root $${ARTIFACTS}
+        depends_on:
+            - db
+networks:
+    mydefault:
+        driver: bridge
+
+volumes:
+    db_datams:
+    mlrun_data:
